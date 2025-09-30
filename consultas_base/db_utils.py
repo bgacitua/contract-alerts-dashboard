@@ -51,26 +51,26 @@ class DatabaseUtils:
             print(f"Error obteniendo alertas: {e}")
             return pd.DataFrame()
     
-    # def obtener_incidencias(self):
-    #     """Obtiene incidencias desde la base"""
-    #     sql = """
-    #         SELECT
-    #             rut_empleado,
-    #             fecha_inicio,
-    #             fecha_fin,
-    #             tipo_permiso
-    #         FROM consolidado_incidencias
-    #     """
-    #     try:
-    #         with self.conectar_bd() as conexion:
-    #             with conexion.cursor() as cursor:
-    #                 cursor.execute(sql)
-    #                 rows = cursor.fetchall()
-    #         cols = ["rut_empleado", "fecha_inicio", "fecha_fin", "tipo_permiso"]
-    #         return pd.DataFrame(rows, columns=cols)
-    #     except Exception as e:
-    #         print(f"Error obteniendo incidencias: {e}")
-    #         return pd.DataFrame()
+    def obtener_incidencias(self):
+        """Obtiene incidencias desde la base"""
+        sql = """
+            SELECT
+                rut_empleado,
+                fecha_inicio,
+                fecha_fin,
+                tipo_permiso
+            FROM consolidado_incidencias
+        """
+        try:
+            with self.conectar_bd() as conexion:
+                with conexion.cursor() as cursor:
+                    cursor.execute(sql)
+                    rows = cursor.fetchall()
+            cols = ["rut_empleado", "fecha_inicio", "fecha_fin", "tipo_permiso"]
+            return pd.DataFrame(rows, columns=cols)
+        except Exception as e:
+            print(f"Error obteniendo incidencias: {e}")
+            return pd.DataFrame()
         
     def obtener_tipo_alerta(self, employee_rut):
         """

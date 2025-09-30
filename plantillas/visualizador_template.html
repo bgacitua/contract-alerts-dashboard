@@ -1,0 +1,141 @@
+<html>
+    <head>
+        <style>
+            body { 
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+                margin: 0; 
+                padding: 20px; 
+                line-height: 1.6; 
+                color: #333;
+                background-color: #f5f5f5;
+            }
+            .email-container {
+                max-width: 800px;
+                margin: 0 auto;
+                background-color: white;
+                border-radius: 10px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                overflow: hidden;
+            }
+            .header {
+                background: linear-gradient(135deg, #2c3e50, #34495e);
+                color: white;
+                padding: 30px 25px;
+                text-align: center;
+            }
+            .header h2 {
+                margin: 0;
+                font-size: 1.8em;
+                font-weight: 300;
+                letter-spacing: 0.5px;
+            }
+            .header p {
+                margin: 8px 0 0 0;
+                opacity: 0.9;
+                font-size: 0.95em;
+            }
+            .content {
+                padding: 30px 25px;
+            }
+            .resumen {
+                background-color: #f8f9fa;
+                border-left: 4px solid #3498db;
+                padding: 20px;
+                margin-bottom: 25px;
+                border-radius: 0 8px 8px 0;
+            }
+            .resumen h3 {
+                margin: 0 0 15px 0;
+                color: #2c3e50;
+                font-size: 1.2em;
+                font-weight: 500;
+            }
+            .resumen p {
+                margin: 8px 0;
+                color: #555;
+            }
+            .saludo {
+                margin-bottom: 20px;
+                color: #2c3e50;
+            }
+            .alerta-container {
+                border: 1px solid #e1e8ed;
+                border-radius: 8px;
+                padding: 20px;
+                margin-bottom: 20px;
+                background-color: #fafafa;
+            }
+            .alerta-header {
+                font-weight: 600;
+                font-size: 1.1em;
+                color: #2c3e50;
+                margin-bottom: 15px;
+                padding-bottom: 8px;
+                border-bottom: 2px solid #ecf0f1;
+            }
+            .urgente {
+                background-color: #fff5f5;
+                border-left: 4px solid #e74c3c;
+            }
+            .vencida {
+                background-color: #fdf2f2;
+                border-left: 4px solid #c53030;
+            }
+            table {
+                border-collapse: collapse;
+                width: 100%;
+                margin-top: 15px;
+                border-radius: 6px;
+                overflow: hidden;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            }
+            th, td {
+                padding: 12px 15px;
+                text-align: left;
+                border-bottom: 1px solid #e1e8ed;
+            }
+            th {
+                background-color: #34495e;
+                color: white;
+                font-weight: 500;
+                text-transform: uppercase;
+                font-size: 0.85em;
+                letter-spacing: 0.5px;
+            }
+            td {
+                background-color: white;
+            }
+            tr:hover td {
+                background-color: #f8f9fa;
+            }
+            .footer {
+                background-color: #34495e;
+                color: white;
+                padding: 20px 25px;
+                font-size: 0.9em;
+                text-align: center;
+                opacity: 0.9;
+            }
+        </style>
+    </head>
+    <body>
+        {modo_texto}
+        
+        <div class="email-container">
+            <div class="header">
+                <h2>Alertas de Contratos</h2>
+                <p>Notificación de alertas pendientes para su equipo</p>
+            </div>
+            
+            <div class="content">
+                <div class="saludo">
+                    <p>Estimado/a <strong>{jefe}</strong>,</p>
+                    <p>Por medio de la presente, le informamos que existen <strong>{len(alertas_jefe)} alerta(s)</strong> de contratos que requieren su atención y revisión:</p>
+                </div>
+                <div class="resumen">
+                    <h3>Resumen Ejecutivo</h3>
+                    <p><strong>Total de alertas:</strong> {len(alertas_jefe)}</p>
+                    <p><strong>Colaboradores involucrados:</strong> {', '.join(alertas_jefe['Empleado'].tolist())}</p>
+                    <p><strong>Fecha de término:</strong> {datetime.now().strftime('%d/%m/%Y %H:%M')}</p>
+                </div>
+

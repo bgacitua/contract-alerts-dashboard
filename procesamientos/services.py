@@ -5,7 +5,7 @@ Gestión de alertas de contrato
 
 from consultas_base.db_utils import DatabaseUtils
 from tkinter import messagebox
-from plantillas.template_mails import _generar_html_reporte_seleccionadas
+from plantillas.template_mails import _generar_html_reporte_seleccionadas, _generar_html_reporte_por_jefe
 import win32com.client as win32
 import pythoncom
 import pandas as pd
@@ -14,7 +14,7 @@ def cargar_alertas(app):
     """Carga las alertas desde la BD y actualiza la interfaz"""
     db = DatabaseUtils()
     app.alertas_df = db.obtener_alertas()
-    #app.incidencias_df = db.obtener_incidencias()    
+    app.incidencias_df = db.obtener_incidencias()    
     
     if not app.alertas_df.empty:
         print("Columnas disponibles:")
@@ -25,7 +25,6 @@ def cargar_alertas(app):
     
     app.actualizar_metricas()
     app.actualizar_tabla()
-
 
 
 def enviar_alertas_seleccionadas(app):
@@ -142,7 +141,7 @@ Total procesadas: {len(seleccionados)}"""
         messagebox.showwarning("Alertas ya procesadas", mensaje_resumen)
     else:
         messagebox.showerror("Errores en el proceso", mensaje_resumen)
- 
+
 def enviar_alertas_seleccionadas_por_jefe(app, jefes_filtro=None):
     """
     Envía las alertas, agrupadas por jefatura.
@@ -242,16 +241,17 @@ def enviar_alertas_seleccionadas_por_jefe(app, jefes_filtro=None):
         try:
             print(f"Enviando correo consolidado...")
             
-            # --- CÓDIGO DE ENVÍO CON OUTLOOK (DESCOMENTAR CUANDO ESTÉ LISTO) ---
-            # pythoncom.CoInitialize()
-            # outlook = win32.Dispatch("outlook.application")
-            # mail = outlook.CreateItem(0)
-            # mail.To = email_jefe
-            # mail.Subject = f"Alertas de contratos - {len(empleados_jefe)} empleado(s) requieren atención"
-            # html = _generar_html_reporte_por_jefe(nombre_jefe, empleados_jefe) 
-            # mail.HTMLBody = html
-            # mail.Send()
-            # pythoncom.CoUninitialize()
+            #--- CÓDIGO DE ENVÍO CON OUTLOOK (DESCOMENTAR CUANDO ESTÉ LISTO) ---
+            pythoncom.CoInitialize()
+            outlook = win32.Dispatch("outlook.application")
+            mail = outlook.CreateItem(0)
+            mail.To = 'bgacitua@cramer.cl'  # Modo prueba
+            #mail.To = email_jefe  # Modo real
+            mail.Subject = f"Alertas de contratos - {len(empleados_jefe)} empleado(s) requieren atención"
+            html = _generar_html_reporte_por_jefe(nombre_jefe, empleados_jefe) 
+            mail.HTMLBody = html
+            mail.Send()
+            pythoncom.CoUninitialize()
             
             # SIMULACIÓN (Borrar cuando se use Outlook real)
             email_enviado = True
@@ -410,15 +410,15 @@ Total procesado: {jefes_exitosos + jefes_con_error} jefe(s)"""
             print(f"Enviando correo consolidado...")
             
             # --- CÓDIGO DE ENVÍO CON OUTLOOK (DESCOMENTAR CUANDO ESTÉ LISTO) ---
-            # pythoncom.CoInitialize()
-            # outlook = win32.Dispatch("outlook.application")
-            # mail = outlook.CreateItem(0)
-            # mail.To = email_jefe
-            # mail.Subject = f"Alertas de contratos - {len(empleados_jefe)} empleado(s) requieren atención"
-            # html = _generar_html_reporte_por_jefe(nombre_jefe, empleados_jefe) # Asume que esta función existe
-            # mail.HTMLBody = html
-            # mail.Send()
-            # pythoncom.CoUninitialize()
+            pythoncom.CoInitialize()
+            outlook = win32.Dispatch("outlook.application")
+            mail = outlook.CreateItem(0)
+            mail.To = 'bgacitua@cramer.cl'
+            mail.Subject = f"Alertas de contratos - {len(empleados_jefe)} empleado(s) requieren atención"
+            html = _generar_html_reporte_por_jefe(nombre_jefe, empleados_jefe) # Asume que esta función existe
+            mail.HTMLBody = html
+            mail.Send()
+            pythoncom.CoUninitialize()
             
             # SIMULACIÓN (Borrar cuando se use Outlook real)
             email_enviado = True
