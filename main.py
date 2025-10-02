@@ -1,5 +1,6 @@
 from interfaz_usuario.ui import ConfigUI
 from procesamientos import services
+from plantillas.template_mails import ReporteManager
 
 def main():
     app = ConfigUI()

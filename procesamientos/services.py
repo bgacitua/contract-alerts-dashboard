@@ -5,32 +5,40 @@ Gestión de alertas de contrato
 
 from consultas_base.db_utils import DatabaseUtils
 from tkinter import messagebox
-from plantillas.template_mails import _generar_html_reporte_seleccionadas
+#from plantillas.template_mails import _generar_html_reporte_seleccionadas
 import win32com.client as win32
 import pythoncom
 import pandas as pd
+from plantillas.template_mails import ReporteManager
+
+db = DatabaseUtils()
 
 def cargar_alertas(app):
     """Carga las alertas desde la BD y actualiza la interfaz"""
-    db = DatabaseUtils()
+    
     app.alertas_df = db.obtener_alertas()
-    #app.incidencias_df = db.obtener_incidencias()    
+    app.incidencias_df = db.obtener_incidencias()    
     
     if not app.alertas_df.empty:
-        print("Columnas disponibles:")
-        for i, col in enumerate(app.alertas_df.columns):
-            print(f"  {i}: '{col}'")
+        print("Carga exitosa")
+        # for i, col in enumerate(app.alertas_df.columns):
+        #     print(f"  {i}: '{col}'")
     else:
         print("DataFrame vacío")
+
+    if not app.incidencias_df.empty:
+        print("Carga existosa de incidencias")
+    else:
+        print("Carga fallida de incidencias")
     
     app.actualizar_metricas()
     app.actualizar_tabla()
 
-
-
 def enviar_alertas_seleccionadas(app):
-    """Envía las alertas seleccionadas en la tabla"""
+    """Envía las alertas seleccionadas en la tabla."""
     seleccionados = app.alertas_tree.selection()
+
+    report_generator = ReporteManager(app.incidencias_df)
     
     if not seleccionados:
         messagebox.showwarning("Sin selección", "Por favor selecciona al menos una alerta.")
@@ -44,7 +52,20 @@ def enviar_alertas_seleccionadas(app):
     if not confirmar_envio:
         return
     
-    db = DatabaseUtils()
+    # Inicialización única de COM y Outlook FUERA del bucle
+    outlook = None
+    try:
+        pythoncom.CoInitialize()
+        outlook = win32.Dispatch("outlook.application")
+    except Exception as e:
+        messagebox.showerror("Error Outlook", f"No se pudo inicializar Outlook. Verifique la compatibilidad 32/64 bits: {e}")
+        try:
+            pythoncom.CoUninitialize()
+        except:
+            pass
+        return
+    
+    db = report_generator.db # Usar la instancia de DB del ReporteManager
     alertas_exitosas = 0
     alertas_ya_procesadas = 0
     alertas_con_error = 0
@@ -56,54 +77,50 @@ def enviar_alertas_seleccionadas(app):
         valores = app.alertas_tree.item(item)['values']
         empleado = valores[0]
         
-        # Obtener RUT desde tu DataFrame
-        fila = app.alertas_df[app.alertas_df['Empleado'] == empleado]
-        if not fila.empty:
-            rut = fila.iloc[0]['RUT']
-            correo_jefe = fila.iloc[0]['Email Jefe']
-            nombre_jefe = fila.iloc[0]['Jefe']
-            correo_jefe_jefe = ""
-            correo_copia = ["gpavez@cramer.cl", 'bgacitua@cramer.cl'] 
+        # Obtener el DataFrame de UNA SOLA FILA para el empleado actual
+        fila_actual_df = app.alertas_df[app.alertas_df['Empleado'] == empleado]
+        
+        if not fila_actual_df.empty:
             
+            rut = fila_actual_df.iloc[0]['RUT']
+            correo_jefe = fila_actual_df.iloc[0]['Email Jefe']
+            nombre_jefe = fila_actual_df.iloc[0]['Jefe']
+            # Se mantienen las copias, etc.
+            correo_copia = ["gpavez@cramer.cl", 'bgacitua@cramer.cl'] 
+            email_prueba = "bgacitua@cramer.cl"
+
             tipo_alerta = db.obtener_tipo_alerta(rut)
             
             if tipo_alerta:
                 print(f"Procesando: {empleado} - RUT: {rut} - Tipo: {tipo_alerta}, correo jefe: {correo_jefe}")
-        
+            
                 if db.verificar_alerta_procesada(rut, tipo_alerta):
                     print(f"⚠️ SALTANDO: Alerta ya procesada para {empleado}")
                     alertas_ya_procesadas += 1
                     continue
                 
-                # Variable para controlar si el email se envió exitosamente
                 email_enviado = False
-                email_prueba = "gpavez@cramer.cl"
                 
                 try:
-                    print(f"Enviando email a: {correo_jefe}")
-                    pythoncom.CoInitialize()
-                    
-                    outlook = win32.Dispatch("outlook.application")
+                    # Crear el item de correo DENTRO del bucle, usando el objeto 'outlook' inicializado
                     mail = outlook.CreateItem(0)
                     mail.To = email_prueba  # Modo prueba
-                    #mail.To = correo_jefe  # Modo real
+                    # mail.To = correo_jefe  # Modo real
                     mail.CC = correo_copia
-                    mail.Subject = f"Alertas de contratos pendientes de revisión"
-
-                    # Generar HTML del reporte solo para seleccionadas
-                    html = _generar_html_reporte_seleccionadas(seleccionados)
+                    mail.Subject = f"Alerta de contrato pendiente de revisión: {empleado}" # Asunto específico
+                    # 💡 CORRECCIÓN 1: Generar HTML solo para la fila actual
+                    html = report_generator._generar_html_reporte_seleccionadas(fila_actual_df) 
                     mail.HTMLBody = html
                     mail.Send()
-
-                    pythoncom.CoUninitialize()
                     
-                    #Si llegas aquí sin excepción, el email se envió
                     email_enviado = True
                     print(f"Email enviado exitosamente a {nombre_jefe}")
                     
                 except Exception as e:
+                    # Si el error -2147352567 ocurre aquí, es casi seguro el problema 32/64 bit
                     print(f"❌ Error enviando correo: {e}")
-                    messagebox.showerror("Error", f"Error enviando correo:\n{e}")
+                    messagebox.showerror("Error", f"Error enviando correo de {empleado}:\n{e}")
+                    alertas_con_error += 1
                     email_enviado = False
                 
                 # Solo marcar como procesada Si el email se envió exitosamente
@@ -121,6 +138,12 @@ def enviar_alertas_seleccionadas(app):
         else:
             print(f"❌ No se encontró el empleado {empleado} en el DataFrame")
             alertas_con_error += 1
+
+    # Desinicialización al final de TODO el proceso
+    try:
+        pythoncom.CoUninitialize()
+    except Exception as e:
+        print(f"Advertencia al desinicializar COM: {e}")
 
     # Recargar los datos para reflejar los cambios
     cargar_alertas(app)
@@ -142,7 +165,7 @@ Total procesadas: {len(seleccionados)}"""
         messagebox.showwarning("Alertas ya procesadas", mensaje_resumen)
     else:
         messagebox.showerror("Errores en el proceso", mensaje_resumen)
- 
+
 def enviar_alertas_seleccionadas_por_jefe(app, jefes_filtro=None):
     """
     Envía las alertas, agrupadas por jefatura.
@@ -155,7 +178,7 @@ def enviar_alertas_seleccionadas_por_jefe(app, jefes_filtro=None):
         return
     
     db = DatabaseUtils()
-    
+    report_generator = ReporteManager(app.incidencias_df)
     # 1. Obtener TODAS las alertas pendientes
     alertas_pendientes = []
     
@@ -238,20 +261,22 @@ def enviar_alertas_seleccionadas_por_jefe(app, jefes_filtro=None):
                 ruts_procesados.append((rut, tipo_alerta))
         
         email_enviado = False
-        
+        report_generator = ReporteManager(app.incidencias_df)
+
         try:
             print(f"Enviando correo consolidado...")
             
             # --- CÓDIGO DE ENVÍO CON OUTLOOK (DESCOMENTAR CUANDO ESTÉ LISTO) ---
-            # pythoncom.CoInitialize()
-            # outlook = win32.Dispatch("outlook.application")
-            # mail = outlook.CreateItem(0)
-            # mail.To = email_jefe
-            # mail.Subject = f"Alertas de contratos - {len(empleados_jefe)} empleado(s) requieren atención"
-            # html = _generar_html_reporte_por_jefe(nombre_jefe, empleados_jefe) 
-            # mail.HTMLBody = html
-            # mail.Send()
-            # pythoncom.CoUninitialize()
+            pythoncom.CoInitialize()
+            outlook = win32.Dispatch("outlook.application")
+            mail = outlook.CreateItem(0)
+            #mail.To = email_jefe
+            mail.To = "bgacitua@cramer.cl"
+            mail.Subject = f"Alertas de contratos - {len(empleados_jefe)} empleado(s) requieren atención"
+            html = report_generator._generar_html_reporte_por_jefe(nombre_jefe, empleados_jefe)
+            mail.HTMLBody = html
+            mail.Send()
+            pythoncom.CoUninitialize()
             
             # SIMULACIÓN (Borrar cuando se use Outlook real)
             email_enviado = True
@@ -410,15 +435,16 @@ Total procesado: {jefes_exitosos + jefes_con_error} jefe(s)"""
             print(f"Enviando correo consolidado...")
             
             # --- CÓDIGO DE ENVÍO CON OUTLOOK (DESCOMENTAR CUANDO ESTÉ LISTO) ---
-            # pythoncom.CoInitialize()
-            # outlook = win32.Dispatch("outlook.application")
-            # mail = outlook.CreateItem(0)
-            # mail.To = email_jefe
-            # mail.Subject = f"Alertas de contratos - {len(empleados_jefe)} empleado(s) requieren atención"
-            # html = _generar_html_reporte_por_jefe(nombre_jefe, empleados_jefe) # Asume que esta función existe
-            # mail.HTMLBody = html
-            # mail.Send()
-            # pythoncom.CoUninitialize()
+            pythoncom.CoInitialize()
+            outlook = win32.Dispatch("outlook.application")
+            mail = outlook.CreateItem(0)
+            mail.To = 'bgacitua@cramer.cl'
+            #mail.To = email_jefe
+            mail.Subject = f"Alertas de contratos - {len(empleados_jefe)} empleado(s) requieren atención"
+            html = report_generator._generar_html_reporte_por_jefe(nombre_jefe, empleados_jefe) # Asume que esta función existe
+            mail.HTMLBody = html
+            mail.Send()
+            pythoncom.CoUninitialize()
             
             # SIMULACIÓN (Borrar cuando se use Outlook real)
             email_enviado = True
